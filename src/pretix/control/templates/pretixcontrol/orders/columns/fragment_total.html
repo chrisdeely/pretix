@@ -1,0 +1,30 @@
+{% load i18n %}
+{% load money %}
+
+{% if order.has_cancellation_request %}
+    <span class="label label-warning">{% trans "CANCELLATION REQUESTED" %}</span>
+{% endif %}
+{% if order.has_external_refund or order.has_pending_refund %}
+    <span class="label label-danger">{% trans "REFUND PENDING" %}</span>
+{% elif order.has_pending_refund %}
+    <span class="label label-warning">{% trans "REFUND PENDING" %}</span>
+{% endif %}
+{% if order.is_overpaid %}
+    <span class="label label-warning">{% trans "OVERPAID" %}</span>
+{% elif order.is_underpaid %}
+    <span class="label label-danger">{% trans "UNDERPAID" %}</span>
+{% elif order.is_pending_with_full_payment %}
+    <span class="label label-danger">{% trans "FULLY PAID" %}</span>
+{% endif %}
+{% if order.computed_payment_refund_sum == order.total or order.computed_payment_refund_sum == 0 %}
+    <span class="text-muted">
+{% endif %}
+{{ order.computed_payment_refund_sum|money:request.event.currency }} /
+{% if order.computed_payment_refund_sum == order.total or order.computed_payment_refund_sum == 0 %}
+    </span>
+{% endif %}
+{{ order.total|money:request.event.currency }}
+{% if order.status == "c" and order.icnt %}
+    <br>
+    <span class="label label-warning">{% trans "INVOICE NOT CANCELED" %}</span>
+{% endif %}

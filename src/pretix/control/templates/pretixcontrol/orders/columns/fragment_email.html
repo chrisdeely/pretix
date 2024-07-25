@@ -1,0 +1,2 @@
+{{ order.email|default_if_none:"" }} {% if order.invoice_address.name %}
+<br />{{ order.invoice_address.name }} {% endif %}

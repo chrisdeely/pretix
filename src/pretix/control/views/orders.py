@@ -443,12 +443,12 @@ class OrderList(OrderSearchMixin, EventPermissionRequiredMixin, PaginationMixin,
             ctx['sums'] = self.get_queryset().aggregate(s=Sum('total'), c=Count('id'))
         
         ctx['columns'] = [
-            {"name": "Order code", "key": "code"},
-            {"name": "User", "key": "email"},
-            {"name": "Order date", "key": "datetime"},
-            {"name": "Order paid / total", "key": "total", "class": "text-right flip"},
-            {"name": "Positions", "key": "positions", "sortable": False, "class": "text-right flip"},
-            {"name": "Status", "key": "status", "class": "text-right flip"},
+            {"name": "Order code", "key": "code", "renderer": "pretixcontrol/orders/columns/fragment_code.html"},
+            {"name": "User", "key": "email", "renderer": "pretixcontrol/orders/columns/fragment_email.html"},
+            {"name": "Order date", "key": "datetime", "renderer": "pretixcontrol/orders/columns/fragment_datetime.html"},
+            {"name": "Order paid / total", "key": "total", "class": "text-right flip", "renderer": "pretixcontrol/orders/columns/fragment_total.html"},
+            {"name": "Positions", "key": "pcnt", "sortable": False, "class": "text-right flip", "renderer": "number"},
+            {"name": "Status", "key": "status", "class": "text-right flip", "renderer": "pretixcontrol/orders/fragment_order_status.html"},
         ]
         return ctx
 

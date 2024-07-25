@@ -5,6 +5,7 @@
 {% load money %}
 {% load bootstrap3 %}
 {% load static %}
+{% load getitem %}
 {% block title %}{% trans "Orders" %}{% endblock %}
 {% block content %}
     <h1>{% trans "Orders" %}</h1>
@@ -165,66 +166,15 @@
                     {% endif %}
                     {% for column in columns %}
                         <td class="{{ column.class|default_if_none:"" }}">
-                            {% if column.key == "code" %}
-                                <strong>
-                                    <a href="{% url "control:event.order" event=request.event.slug organizer=request.event.organizer.slug code=o.code %}">
-                                        {{ o.code }}</a>
-                                </strong>
-                                {% if o.testmode %}
-                                    <span class="label label-warning">{% trans "TEST MODE" %}</span>
-                                {% endif %}
-                                {% if o.custom_followup_due %}
-                                    <span class="label label-danger">{% blocktrans trimmed with date=o.custom_followup_at|date:"SHORT_DATE_FORMAT" context "followup" %}TODO {{ date }}{% endblocktrans %}</span>
-                                {% elif o.custom_followup_at %}
-                                    <span class="label label-default">{% blocktrans trimmed with date=o.custom_followup_at|date:"SHORT_DATE_FORMAT" context "followup" %}TODO {{ date }}{% endblocktrans %}</span>
-                                {% endif %}
-                            {% elif column.key == "email" %}
-                                {{ o.email|default_if_none:"" }}
-                                {% if o.invoice_address.name %}
-                                    <br>{{ o.invoice_address.name }}
-                                {% endif %}
-                            {% elif column.key == "datetime" %}
-                                {% if "." in o.sales_channel.icon %}
-                                    <img src="{% static o.sales_channel.icon %}" class="fa-like-image"
-                                         data-toggle="tooltip" title="{{ o.sales_channel.label }}">
+                            {% with value=o|getitem:column.key %}
+                                {% if column.renderer == "number" %}
+                                    {{ value|default:"0" }}
+                                {% elif column.renderer == "string" or not column.renderer %}
+                                    {{ value|default:"" }}
                                 {% else %}
-                                    <span class="fa fa-fw fa-{{ o.sales_channel.icon }} text-muted"
-                                          data-toggle="tooltip" title="{{ o.sales_channel.label }}"></span>
+                                    {% include column.renderer with order=o %}
                                 {% endif %}
-                                {{ o.datetime|date:"SHORT_DATETIME_FORMAT" }}
-                            {% elif column.key == "total" %}
-                                {% if o.has_cancellation_request %}
-                                    <span class="label label-warning">{% trans "CANCELLATION REQUESTED" %}</span>
-                                {% endif %}
-                                {% if o.has_external_refund or o.has_pending_refund %}
-                                    <span class="label label-danger">{% trans "REFUND PENDING" %}</span>
-                                {% elif o.has_pending_refund %}
-                                    <span class="label label-warning">{% trans "REFUND PENDING" %}</span>
-                                {% endif %}
-                                {% if o.is_overpaid %}
-                                    <span class="label label-warning">{% trans "OVERPAID" %}</span>
-                                {% elif o.is_underpaid %}
-                                    <span class="label label-danger">{% trans "UNDERPAID" %}</span>
-                                {% elif o.is_pending_with_full_payment %}
-                                    <span class="label label-danger">{% trans "FULLY PAID" %}</span>
-                                {% endif %}
-                                {% if o.computed_payment_refund_sum == o.total or o.computed_payment_refund_sum == 0 %}
-                                    <span class="text-muted">
-                                {% endif %}
-                                {{ o.computed_payment_refund_sum|money:request.event.currency }} /
-                                {% if o.computed_payment_refund_sum == o.total or o.computed_payment_refund_sum == 0 %}
-                                    </span>
-                                {% endif %}
-                                {{ o.total|money:request.event.currency }}
-                                {% if o.status == "c" and o.icnt %}
-                                    <br>
-                                    <span class="label label-warning">{% trans "INVOICE NOT CANCELED" %}</span>
-                                {% endif %}
-                            {% elif column.key == "positions" %}
-                                {{ o.pcnt|default_if_none:"0" }}
-                            {% elif column.key == "status" %}
-                                {% include "pretixcontrol/orders/fragment_order_status.html" with order=o %}
-                            {% endif %}
+                            {% endwith %}
                         </td>
                     {% endfor %}
                 </tr>
