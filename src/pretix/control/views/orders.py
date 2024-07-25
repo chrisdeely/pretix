@@ -441,6 +441,15 @@ class OrderList(OrderSearchMixin, EventPermissionRequiredMixin, PaginationMixin,
             )
         else:
             ctx['sums'] = self.get_queryset().aggregate(s=Sum('total'), c=Count('id'))
+        
+        ctx['columns'] = [
+            {"name": "Order code", "key": "code"},
+            {"name": "User", "key": "email"},
+            {"name": "Order date", "key": "datetime"},
+            {"name": "Order paid / total", "key": "total", "class": "text-right flip"},
+            {"name": "Positions", "key": "positions", "sortable": False, "class": "text-right flip"},
+            {"name": "Status", "key": "status", "class": "text-right flip"},
+        ]
         return ctx
 
     @cached_property
