@@ -274,6 +274,15 @@ As with all plugin signals, the ``sender`` keyword argument will contain the eve
 Additionally, the argument ``order`` and ``request`` are available.
 """
 
+order_list_columns = Signal()
+"""
+Arguments: ``orders``, ``columns``, ``request``
+
+This signal is sent out to allow plugins to modify the columns displayed in the order list.
+The plugin is expected to return a list of dictionaries, each containing the keys 
+"index" - 0-based column position, "name" - column heading, "key"- the data field to display, "renderer" - "number", "string" or path to a custom fragment
+"""
+
 nav_event_settings = EventPluginSignal()
 """
 Arguments: 'request'

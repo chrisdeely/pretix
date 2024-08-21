@@ -1,0 +1,14 @@
+{% load static %} {% if "." in order.sales_channel.icon %}
+<img
+  src="{% static order.sales_channel.icon %}"
+  class="fa-like-image"
+  data-toggle="tooltip"
+  title="{{ order.sales_channel.label }}"
+/>
+{% else %}
+<span
+  class="fa fa-fw fa-{{ order.sales_channel.icon }} text-muted"
+  data-toggle="tooltip"
+  title="{{ order.sales_channel.label }}"
+></span>
+{% endif %} {{ order.datetime|date:"SHORT_DATETIME_FORMAT" }}

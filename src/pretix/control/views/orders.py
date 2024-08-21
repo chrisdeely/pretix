@@ -126,7 +126,7 @@ from pretix.control.forms.orders import (
 )
 from pretix.control.forms.rrule import RRuleForm
 from pretix.control.permissions import EventPermissionRequiredMixin
-from pretix.control.signals import order_search_forms
+from pretix.control.signals import order_search_forms, order_list_columns
 from pretix.control.views import PaginationMixin
 from pretix.helpers import OF_SELF
 from pretix.helpers.compat import CompatDeleteView
@@ -441,12 +441,37 @@ class OrderList(OrderSearchMixin, EventPermissionRequiredMixin, PaginationMixin,
             )
         else:
             ctx['sums'] = self.get_queryset().aggregate(s=Sum('total'), c=Count('id'))
+        
+        columns = [
+          OrderColumn(index=0, name="Order code", key="code", renderer="pretixcontrol/orders/columns/fragment_code.html"),
+          OrderColumn(index=1, name="User", key="email", renderer="pretixcontrol/orders/columns/fragment_email.html"),
+          OrderColumn(index=2, name="Order date", key="datetime", renderer="pretixcontrol/orders/columns/fragment_datetime.html"),
+          OrderColumn(index=3, name="Order paid / total", key="total", class_name="text-right flip", renderer="pretixcontrol/orders/columns/fragment_total.html"),
+          OrderColumn(index=4, name="Positions", key="pcnt", sortable=False, class_name="text-right flip", renderer="number"),
+          OrderColumn(index=5, name="Status", key="status", class_name="text-right flip", renderer="pretixcontrol/orders/fragment_order_status.html")
+        ]
+        
+        for recv, retv in order_list_columns.send(sender=self, request=self.request,
+                                             columns=columns, orders=ctx['orders']):
+            columns += retv
+            
+        columns.sort(key=lambda n: n.index)
+        ctx['columns'] = columns
         return ctx
 
     @cached_property
     def filter_form(self):
         return EventOrderFilterForm(data=self.request.GET, event=self.request.event)
 
+
+class OrderColumn():
+    def __init__(self, **kwargs):
+        self.name = kwargs.get('name')
+        self.index = kwargs.get('index')
+        self.key = kwargs.get('key')
+        self.renderer = kwargs.get('renderer', None)
+        self.sortable = kwargs.get('sortable', True)
+        self.class_name = kwargs.get('class_name', None)
 
 class OrderView(EventPermissionRequiredMixin, DetailView):
     context_object_name = 'order'

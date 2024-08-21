@@ -30,7 +30,10 @@ def getitem_filter(value, itemname):
         return ''
 
     try:
-        return value[itemname]
+        if isinstance(value, dict):
+            return value[itemname]
+        elif hasattr(value, itemname):
+            return getattr(value, itemname)
     except KeyError:
         return ''
     except TypeError:
