@@ -78,7 +78,9 @@
                             <strong>{{ pos.item.name }}
                             {% if pos.variation %}
                                 – {{ pos.variation }}
-                            {% endif %}</strong>
+                            {% endif %}
+                            - # {{ forloop.counter }}
+                            </strong>
                             {% if forloop.counter > 1 %}
                                 <span class="text-right flip">
                                     {% if event.settings.checkout_show_copy_answers_button %}
