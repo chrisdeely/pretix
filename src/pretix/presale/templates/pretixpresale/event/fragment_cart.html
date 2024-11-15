@@ -20,6 +20,7 @@
         </div>
     </div>
     <div role="rowgroup" class="firstchild-in-panel">
+    {% with 0 as ticket_counter %}
     {% for line in cart.positions %}
         <div role="row" class="row cart-row {% if hide_prices %}hide-prices{% endif %} {% if download %}has-downloads{% endif %}{% if editable %}editable{% endif %}">
             <div role="cell" class="product">
@@ -27,7 +28,13 @@
                 {% if line.addon_to %}
                     <span class="addon-signifier">+</span>
                 {% endif %}
-                <strong>{{ line.item.name }}</strong>
+                <strong>{{ line.item.name }}
+                    {% if not line.addon_to %}
+                        {% with ticket_counter|add:1 as ticket_counter %}
+                         - # {{ ticket_counter }}
+                        {% endwith %}
+                     {% endif %}
+                </strong>
                 {% if line.variation %}
                     – {{ line.variation }}
                 {% endif %}
@@ -384,6 +391,7 @@
             </div>
         {% endfor %}
     {% endfor %}
+    {% endwith %}
     {% for fee in cart.fees %}
         <div class="row cart-row">
             <div class="col-md-4 col-xs-6">
