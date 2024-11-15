@@ -485,7 +485,7 @@
 <div class="row">
     <div class="col-md-12">
     {% if not cart.is_ordered %}
-        <p class="text-muted" id="cart-deadline" data-expires="{{ cart.first_expiry|date:"Y-m-d H:i:sO" }}">
+        {% comment %} <p class="text-muted" id="cart-deadline" data-expires="{{ cart.first_expiry|date:"Y-m-d H:i:sO" }}">
             {% if cart.minutes_left > 0 or cart.seconds_left > 0 %}
                 {% blocktrans trimmed with minutes=cart.minutes_left %}
                     The items in your cart are reserved for you for {{ minutes }} minutes.
@@ -493,7 +493,7 @@
             {% else %}
                 {% trans "The items in your cart are no longer reserved for you. You can still complete your order as long as they’re available." %}
             {% endif %}
-        </p>
+        </p> {% endcomment %}
     {% else %}
         <p class="sr-only" id="cart-description">{% trans "Overview of your ordered products." %}</p>
     {% endif %}
