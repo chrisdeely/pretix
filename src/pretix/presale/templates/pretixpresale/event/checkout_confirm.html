@@ -23,13 +23,6 @@
                     </a>
                 </h3>
                 <span class="panel-heading-flex-gap"></span>
-                <strong class="helper-display-block" id="cart-deadline-short" data-expires="{{ cart.first_expiry|date:"Y-m-d H:i:sO" }}">
-                    {% if cart.minutes_left > 0 or cart.seconds_left > 0 %}
-                        {{ cart.minutes_left|stringformat:"02d" }}:{{ cart.seconds_left|stringformat:"02d" }}
-                    {% else %}
-                        {% trans "Cart expired" %}
-                    {% endif %}
-                </strong>
             </div>
             <div class="panel-body">
                 {% include "pretixpresale/event/fragment_cart.html" with cart=cart event=request.event editable=False %}

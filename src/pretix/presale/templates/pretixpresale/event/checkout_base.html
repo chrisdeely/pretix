@@ -20,15 +20,6 @@
                     <i class="fa fa-shopping-cart" aria-hidden="true"></i>
                     <strong>{% trans "Your cart" %}</strong>
                 </span>
-                <span aria-hidden="true">
-                    <strong id="cart-deadline-short" data-expires="{{ cart.first_expiry|date:"Y-m-d H:i:sO" }}">
-                        {% if cart.minutes_left > 0 or cart.seconds_left > 0 %}
-                            {{ cart.minutes_left|stringformat:"02d" }}:{{ cart.seconds_left|stringformat:"02d" }}
-                        {% else %}
-                            {% trans "Cart expired" %}
-                        {% endif %}
-                    </strong>
-                </span>
             </h2>
         </summary>
         {% if "open_cart" not in request.GET %}
