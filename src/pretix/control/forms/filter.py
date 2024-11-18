@@ -68,6 +68,7 @@ from pretix.helpers.database import (
 )
 from pretix.helpers.dicts import move_to_end
 from pretix.helpers.i18n import i18ncomp
+from pretix_grouporders.models import VereinChoice
 
 PAYMENT_PROVIDERS = []
 
@@ -406,6 +407,9 @@ class OrderFilterForm(FilterForm):
                 )
             )
             qs = qs.filter(has_payment_with_provider=1)
+            
+        if fdata.get('group'):
+            qs = qs.filter(meta_info__icontains=fdata.get('group'))
 
         return qs
 
@@ -431,6 +435,12 @@ class EventOrderFilterForm(OrderFilterForm):
     answer = forms.CharField(
         required=False
     )
+    
+    group = forms.ChoiceField(
+        label=_('Verein'),
+        required=False,
+        choices=[('', _('All Vereine'))] + [(v.value, v.value) for v in VereinChoice.objects.all()]
+    )
 
     def __init__(self, *args, **kwargs):
         self.event = kwargs.pop('event')
@@ -439,7 +449,7 @@ class EventOrderFilterForm(OrderFilterForm):
         self.fields['question'].queryset = self.event.questions.all()
         self.fields['provider'].choices += [(k, v.verbose_name) for k, v
                                             in self.event.get_payment_providers().items()]
-
+        self.fields['group'].queryset = VereinChoice.objects.all();
         if self.event.has_subevents:
             self.fields['subevent'].queryset = self.event.subevents.all()
             self.fields['subevent'].widget = Select2(
