@@ -40,6 +40,7 @@ import os
 import re
 from datetime import datetime, time, timedelta
 from decimal import Decimal, DecimalException
+import unicodedata
 from urllib.parse import quote, urlencode
 
 from django import forms
@@ -2467,17 +2468,21 @@ class OverView(EventPermissionRequiredMixin, TemplateView):
     @cached_property
     def filter_form(self):
         return OverviewFilterForm(data=self.request.GET, event=self.request.event)
-
+    
+    def normalize_string(self, s):
+        return unicodedata.normalize('NFKD', s).encode('ascii', 'ignore').decode('ascii')
+    
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data()
+        print('here')
 
         if self.filter_form.is_valid():
+            normalized_group = self.filter_form.cleaned_data['group']
+            print(normalized_group)
             ctx['items_by_category'], ctx['total'] = order_overview(
                 self.request.event,
                 subevent=self.filter_form.cleaned_data.get('subevent'),
-                date_filter=self.filter_form.cleaned_data['date_axis'],
-                date_from=self.filter_form.cleaned_data['date_from'],
-                date_until=self.filter_form.cleaned_data['date_until'],
+                base_qs=OrderPosition.objects.all().filter(Q(order__meta_info__icontains=normalized_group)),
                 fees=True
             )
         else:

@@ -2261,24 +2261,11 @@ class OverviewFilterForm(FilterForm):
         required=False,
         empty_label=pgettext_lazy('subevent', 'All dates')
     )
-    date_axis = forms.ChoiceField(
-        label=_('Date filter'),
-        choices=(
-            ('', _('Filter by…')),
-            ('order_date', _('Order date')),
-            ('last_payment_date', _('Date of last successful payment')),
-        ),
+    
+    group = forms.ChoiceField(
+        label=_('Verein'),
         required=False,
-    )
-    date_from = forms.DateField(
-        label=_('Date from'),
-        required=False,
-        widget=DatePickerWidget,
-    )
-    date_until = forms.DateField(
-        label=_('Date until'),
-        required=False,
-        widget=DatePickerWidget,
+        choices=[('', _('All Vereine'))] + [(v.value, v.value) for v in VereinChoice.objects.all()]
     )
 
     def __init__(self, *args, **kwargs):
