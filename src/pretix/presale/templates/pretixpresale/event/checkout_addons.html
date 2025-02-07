@@ -20,7 +20,9 @@
                             <span class="sr-only">{% trans "Add-ons:" %}</span>
                             <strong>{{ form.item.name }}{% if form.variation %}
                                 – {{ form.variation }}
-                            {% endif %}</strong>
+                            {% endif %}
+                            - # {{ forloop.counter }}
+                            </strong>
                         </h3>
                     </summary>
                     <div id="cp{{ form.pos.pk }}">
