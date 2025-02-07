@@ -117,6 +117,11 @@ def html_head_presale(sender, request=None, **kwargs):
         provider.init_api()
         template = get_template('pretixplugins/paypal2/presale_head.html')
 
+        disable_funding_list = []
+        if provider.settings.get('disable_method_sepa', as_type=bool):
+            disable_funding_list.append('sepa')
+        if not provider.settings.get('enable_method_paylater', as_type=bool):
+            disable_funding_list.append('paylater')
         ctx = {
             'client_id': provider.client.environment.client_id,
             'merchant_id': provider.client.environment.merchant_id or '',
@@ -125,7 +130,7 @@ def html_head_presale(sender, request=None, **kwargs):
             'settings': provider.settings,
             # If we ever have more APMs that can be disabled, we should iterate over the
             # disable_method_*/enable_method*-keys
-            'disable_funding': 'sepa' if provider.settings.get('disable_method_sepa', as_type=bool) else '',
+            'disable_funding': ','.join(disable_funding_list),
             'enable_funding': 'paylater' if provider.settings.get('enable_method_paylater', as_type=bool) else ''
         }
 
