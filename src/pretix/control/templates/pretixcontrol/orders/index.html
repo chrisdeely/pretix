@@ -60,30 +60,11 @@
         </div>
         <form class="panel-body filter-form" action="" method="get">
             <div class="row">
-                <div class="col-md-3 col-xs-6">
-                    {% bootstrap_field filter_form.query %}
-                </div>
-                <div class="col-md-2 col-xs-6">
-                    {% bootstrap_field filter_form.status %}
-                </div>
-                {% if request.event.has_subevents %}
-                    <div class="col-md-2 col-xs-6">
-                        {% bootstrap_field filter_form.item %}
-                    </div>
+                {% for field in filter_form %}
                     <div class="col-md-3 col-xs-6">
-                        {% bootstrap_field filter_form.subevent %}
+                        {% bootstrap_field field %}
                     </div>
-                    <div class="col-md-2 col-xs-6">
-                        {% bootstrap_field filter_form.provider %}
-                    </div>
-                {% else %}
-                    <div class="col-md-4 col-xs-6">
-                        {% bootstrap_field filter_form.item %}
-                    </div>
-                    <div class="col-md-3 col-xs-6">
-                        {% bootstrap_field filter_form.provider %}
-                    </div>
-                {% endif %}
+                {% endfor %}
             </div>
             <div class="text-right flip">
                 <a href="{% url "control:event.orders.search" event=request.event.slug organizer=request.event.organizer.slug %}"
