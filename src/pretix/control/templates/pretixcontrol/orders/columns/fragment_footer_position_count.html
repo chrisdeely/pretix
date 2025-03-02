@@ -1,0 +1,9 @@
+{% load i18n %}
+
+<th>
+        <span class="fa fa-info-circle text-muted" data-toggle="tooltip"
+                title="{% trans 'This sum includes canceled orders. For your ticket revenue, look at the "order overview".' %}"></span>
+        {% if sums and sums.pc %}
+            {{ sums.pc }}
+        {% endif %}
+</th>

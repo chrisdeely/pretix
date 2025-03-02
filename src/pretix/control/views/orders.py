@@ -445,15 +445,20 @@ class OrderList(OrderSearchMixin, EventPermissionRequiredMixin, PaginationMixin,
         columns = [
           OrderColumn(index=0, name="Order code", key="code", renderer="pretixcontrol/orders/columns/fragment_code.html"),
           OrderColumn(index=1, name="User", key="email", renderer="pretixcontrol/orders/columns/fragment_email.html"),
-          OrderColumn(index=2, name="Order date", key="datetime", renderer="pretixcontrol/orders/columns/fragment_datetime.html"),
-          OrderColumn(index=3, name="Order paid / total", key="total", class_name="text-right flip", renderer="pretixcontrol/orders/columns/fragment_total.html"),
-          OrderColumn(index=4, name="Positions", key="pcnt", sortable=False, class_name="text-right flip", renderer="number"),
+          OrderColumn(index=2, name="Order date", key="datetime", renderer="pretixcontrol/orders/columns/fragment_datetime.html", footer="pretixcontrol/orders/columns/fragment_footer_order_count.html"),
+          OrderColumn(index=3, name="Order paid / total", key="total", class_name="text-right flip", renderer="pretixcontrol/orders/columns/fragment_total.html", footer="pretixcontrol/orders/columns/fragment_footer_order_total_sum.html"),
+          OrderColumn(index=4, name="Positions", key="pcnt", sortable=False, class_name="text-right flip", renderer="number", footer="pretixcontrol/orders/columns/fragment_footer_position_count.html"),
           OrderColumn(index=5, name="Status", key="status", class_name="text-right flip", renderer="pretixcontrol/orders/fragment_order_status.html")
         ]
         
-        for recv, retv in order_list_columns.send(sender=self, request=self.request,
-                                             columns=columns, orders=ctx['orders']):
-            columns += retv
+        for recv, retv in order_list_columns.send(sender=self, request=self.request, columns=columns, ctx=ctx):
+            if isinstance(retv, dict):
+                remove_keys = retv.get('remove', [])
+                columns = [col for col in columns if col.key not in remove_keys]
+                columns += retv.get('add', [])
+            else:
+                columns += retv
+
             
         columns.sort(key=lambda n: n.index)
         ctx['columns'] = columns
@@ -472,6 +477,7 @@ class OrderColumn():
         self.renderer = kwargs.get('renderer', None)
         self.sortable = kwargs.get('sortable', True)
         self.class_name = kwargs.get('class_name', None)
+        self.footer = kwargs.get('footer', None)
 
 class OrderView(EventPermissionRequiredMixin, DetailView):
     context_object_name = 'order'

@@ -1,0 +1,11 @@
+{% load i18n %}
+
+<th>
+    {% if sums %}
+        {% blocktrans trimmed count s=sums.c %}
+            1 order
+        {% plural %}
+            {{ s }} orders
+        {% endblocktrans %}
+    {% endif %}
+</th>
