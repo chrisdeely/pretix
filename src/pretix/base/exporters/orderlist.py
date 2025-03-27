@@ -91,6 +91,43 @@ class OrderListExporter(MultiSheetListExporter):
     featured = True
 
     @cached_property
+    def COLUMN_CONFIG(self):
+        return {
+            'event_slug': (_('Event slug'), lambda order: order.event.slug),
+            'event_name': (_('Event name'), lambda order: str(order.event.name)),
+            'order_code': (_('Order code'), lambda order: order.code),
+            'order_total': (_('Order total'), lambda order: order.total),
+            'status': (_('Status'), lambda order: order.get_extended_status_display()),
+            'email': (_('Email'), lambda order: order.email),
+            'phone_number': (_('Phone number'), lambda order: str(order.phone) if order.phone else ''),
+            'order_date': (_('Order date'), lambda order: order.datetime.astimezone(ZoneInfo(order.event.settings.timezone)).strftime('%Y-%m-%d')),
+            'order_time': (_('Order time'), lambda order: order.datetime.astimezone(ZoneInfo(order.event.settings.timezone)).strftime('%H:%M:%S')),
+            'company': (_('Company'), lambda order: order.invoice_address.company if order.invoice_address else ''),
+            'name': (_('Name'), lambda order: order.invoice_address.name if order.invoice_address else ''),
+            'address': (_('Address'), lambda order: order.invoice_address.street if order.invoice_address else ''),
+            'zip_code': (_('ZIP code'), lambda order: order.invoice_address.zipcode if order.invoice_address else ''),
+            'city': (_('City'), lambda order: order.invoice_address.city if order.invoice_address else ''),
+            'country': (_('Country'), lambda order: order.invoice_address.country if order.invoice_address else ''),
+            'state': (pgettext('address', 'State'), lambda order: order.invoice_address.state if order.invoice_address else ''),
+            'vat_id': (_('VAT ID'), lambda order: order.invoice_address.vat_id if order.invoice_address else ''),
+            'date_of_last_payment': (_('Date of last payment'), lambda order: order.payment_date.astimezone(ZoneInfo(order.event.settings.timezone)).strftime('%Y-%m-%d') if order.payment_date else ''),
+            'fees': (_('Fees'), lambda order: sum(
+                fee.value for fee in OrderFee.objects.filter(order=order)
+            )),
+            'order_locale': (_('Order locale'), lambda order: order.locale),
+            'invoice_numbers': (_('Invoice numbers'), lambda order: order.invoice_numbers),
+            'sales_channel': (_('Sales channel'), lambda order: order.sales_channel),
+            'requires_special_attention': (_('Requires special attention'), lambda order: _('Yes') if order.checkin_attention else _('No')),
+            'checkin_text': (_('Check-in text'), lambda order: order.checkin_text or ''),
+            'comment': (_('Comment'), lambda order: order.comment or ''),
+            'follow_up_date': (_('Follow-up date'), lambda order: order.custom_followup_at.strftime('%Y-%m-%d') if order.custom_followup_at else ''),
+            'positions': (_('Positions'), lambda order: order.pcnt),
+            'email_verified': (_('E-mail address verified'), lambda order: _('Yes') if order.email_known_to_work else _('No')),
+            'external_customer_id': (_('External customer ID'), lambda order: str(order.customer.external_identifier) if order.customer and order.customer.external_identifier else ''),
+            'payment_providers': (_('Payment providers'), lambda order: ', '.join([str(self.providers.get(p, p)) for p in sorted(set((order.payment_providers or '').split(','))) if p and p != 'free']))
+        }
+
+    @cached_property
     def providers(self):
         return dict(get_all_payment_providers())
 
@@ -137,6 +174,14 @@ class OrderListExporter(MultiSheetListExporter):
                  required=False,
                  help_text=_('Only include orders including at least one ticket for a date in this range. '
                              'Will also include other dates in case of mixed orders!')
+             )),
+             ('columns',
+             forms.MultipleChoiceField(
+                 label=_('Columns'),
+                 choices=[(key, label) for key, (label, _) in self.COLUMN_CONFIG.items()],
+                 initial=[key for key in self.COLUMN_CONFIG.keys()],
+                 required=False,
+                 widget=forms.CheckboxSelectMultiple,
              )),
         ]
         d = OrderedDict(d)
@@ -257,18 +302,8 @@ class OrderListExporter(MultiSheetListExporter):
         qs = self.orders_qs(form_data)
         tax_rates = self._get_all_tax_rates(qs)
 
-        headers = [
-            _('Event slug'), _('Event name'), _('Order code'), _('Order total'), _('Status'), _('Email'),
-            _('Phone number'), _('Order date'), _('Order time'), _('Company'), _('Name'),
-        ]
-        name_scheme = PERSON_NAME_SCHEMES[self.event.settings.name_scheme] if not self.is_multievent else None
-        if name_scheme and len(name_scheme['fields']) > 1:
-            for k, label, w in name_scheme['fields']:
-                headers.append(label)
-        headers += [
-            _('Address'), _('ZIP code'), _('City'), _('Country'), pgettext('address', 'State'),
-            _('Custom address field'), _('VAT ID'), _('Date of last payment'), _('Fees'), _('Order locale')
-        ]
+        selected_columns = form_data.get('columns', list(self.COLUMN_CONFIG.keys()))
+        headers = [self.COLUMN_CONFIG[col][0] for col in selected_columns]
 
         for tr in tax_rates:
             headers += [
@@ -277,16 +312,6 @@ class OrderListExporter(MultiSheetListExporter):
                 _('Tax value at {rate} % tax').format(rate=tr),
             ]
 
-        headers.append(_('Invoice numbers'))
-        headers.append(_('Sales channel'))
-        headers.append(_('Requires special attention'))
-        headers.append(_('Check-in text'))
-        headers.append(_('Comment'))
-        headers.append(_('Follow-up date'))
-        headers.append(_('Positions'))
-        headers.append(_('E-mail address verified'))
-        headers.append(_('External customer ID'))
-        headers.append(_('Payment providers'))
         if form_data.get('include_payment_amounts'):
             payment_methods = self._get_all_payment_methods(qs)
             for id, vn in payment_methods:
@@ -334,45 +359,7 @@ class OrderListExporter(MultiSheetListExporter):
         for order in qs.order_by('datetime').iterator():
             tz = ZoneInfo(self.event_object_cache[order.event_id].settings.timezone)
 
-            row = [
-                self.event_object_cache[order.event_id].slug,
-                str(self.event_object_cache[order.event_id].name),
-                order.code,
-                order.total,
-                order.get_extended_status_display(),
-                order.email,
-                str(order.phone) if order.phone else '',
-                order.datetime.astimezone(tz).strftime('%Y-%m-%d'),
-                order.datetime.astimezone(tz).strftime('%H:%M:%S'),
-            ]
-            try:
-                row += [
-                    order.invoice_address.company,
-                    order.invoice_address.name,
-                ]
-                if name_scheme and len(name_scheme['fields']) > 1:
-                    for k, label, w in name_scheme['fields']:
-                        row.append(
-                            get_name_parts_localized(order.invoice_address.name_parts, k)
-                        )
-                row += [
-                    order.invoice_address.street,
-                    order.invoice_address.zipcode,
-                    order.invoice_address.city,
-                    order.invoice_address.country if order.invoice_address.country else
-                    order.invoice_address.country_old,
-                    order.invoice_address.state,
-                    order.invoice_address.custom_field,
-                    order.invoice_address.vat_id,
-                ]
-            except InvoiceAddress.DoesNotExist:
-                row += [''] * (9 + (len(name_scheme['fields']) if name_scheme and len(name_scheme['fields']) > 1 else 0))
-
-            row += [
-                order.payment_date.astimezone(tz).strftime('%Y-%m-%d') if order.payment_date else '',
-                full_fee_sum_cache.get(order.id) or Decimal('0.00'),
-                order.locale,
-            ]
+            row = [self.COLUMN_CONFIG[col][1](order) for col in selected_columns]
 
             for tr in tax_rates:
                 taxrate_values = sum_cache.get((order.id, tr), {'grosssum': Decimal('0.00'), 'taxsum': Decimal('0.00')})
@@ -1219,7 +1206,9 @@ class GiftcardTransactionListExporter(OrganizerLevelExportMixin, ListExporter):
         ]
         yield headers
 
-        for obj in qs:
+        yield self.ProgressSetTotal(total=qs.count())
+
+        for obj in qs.iterator():
             row = [
                 obj.card.secret,
                 _('TEST MODE') if obj.card.testmode else '',
