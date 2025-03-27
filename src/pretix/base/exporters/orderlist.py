@@ -115,6 +115,49 @@ class OrderListExporter(MultiSheetListExporter):
                 fee.value for fee in OrderFee.objects.filter(order=order)
             )),
             'order_locale': (_('Order locale'), lambda order: order.locale),
+            'tax_rates': (
+                _('Tax Rates'),
+                lambda order: [
+                    {
+                        'header': _('Gross at {rate} % tax').format(rate=rate),
+                        'value': sum(
+                            op.price for op in OrderPosition.objects.filter(order=order, tax_rate=rate)
+                        ) + sum(
+                            fee.value for fee in OrderFee.objects.filter(order=order, tax_rate=rate)
+                        )
+                    }
+                    for rate in sorted(
+                        set(OrderPosition.objects.filter(order=order).values_list('tax_rate', flat=True).distinct()) |
+                        set(OrderFee.objects.filter(order=order).values_list('tax_rate', flat=True).distinct())
+                    )
+                ] + [
+                    {
+                        'header': _('Net at {rate} % tax').format(rate=rate),
+                        'value': sum(
+                            op.price - op.tax_value for op in OrderPosition.objects.filter(order=order, tax_rate=rate)
+                        ) + sum(
+                            fee.value - fee.tax_value for fee in OrderFee.objects.filter(order=order, tax_rate=rate)
+                        )
+                    }
+                    for rate in sorted(
+                        set(OrderPosition.objects.filter(order=order).values_list('tax_rate', flat=True).distinct()) |
+                        set(OrderFee.objects.filter(order=order).values_list('tax_rate', flat=True).distinct())
+                    )
+                ] + [
+                    {
+                        'header': _('Tax value at {rate} % tax').format(rate=rate),
+                        'value': sum(
+                            op.tax_value for op in OrderPosition.objects.filter(order=order, tax_rate=rate)
+                        ) + sum(
+                            fee.tax_value for fee in OrderFee.objects.filter(order=order, tax_rate=rate)
+                        )
+                    }
+                    for rate in sorted(
+                        set(OrderPosition.objects.filter(order=order).values_list('tax_rate', flat=True).distinct()) |
+                        set(OrderFee.objects.filter(order=order).values_list('tax_rate', flat=True).distinct())
+                    )
+                ]
+            ),
             'invoice_numbers': (_('Invoice numbers'), lambda order: order.invoice_numbers),
             'sales_channel': (_('Sales channel'), lambda order: order.sales_channel),
             'requires_special_attention': (_('Requires special attention'), lambda order: _('Yes') if order.checkin_attention else _('No')),
@@ -300,17 +343,17 @@ class OrderListExporter(MultiSheetListExporter):
 
     def iterate_orders(self, form_data: dict):
         qs = self.orders_qs(form_data)
-        tax_rates = self._get_all_tax_rates(qs)
 
         selected_columns = form_data.get('columns', list(self.COLUMN_CONFIG.keys()))
-        headers = [self.COLUMN_CONFIG[col][0] for col in selected_columns]
-
-        for tr in tax_rates:
-            headers += [
-                _('Gross at {rate} % tax').format(rate=tr),
-                _('Net at {rate} % tax').format(rate=tr),
-                _('Tax value at {rate} % tax').format(rate=tr),
-            ]
+        headers = []
+        for col in selected_columns:
+            column_data = self.COLUMN_CONFIG[col][1](qs.first())  # Use the first order to generate headers dynamically
+            if isinstance(column_data, list):
+                # If the column data is a list, extract headers for multiple columns
+                headers.extend([entry['header'] for entry in column_data])
+            else:
+                # Otherwise, append the single column header
+                headers.append(self.COLUMN_CONFIG[col][0])
 
         if form_data.get('include_payment_amounts'):
             payment_methods = self._get_all_payment_methods(qs)
@@ -321,16 +364,6 @@ class OrderListExporter(MultiSheetListExporter):
         headers += next(iter(self.event_object_cache.values())).meta_data.keys()
         yield headers
 
-        full_fee_sum_cache = {
-            o['order__id']: o['grosssum'] for o in
-            OrderFee.objects.values('tax_rate', 'order__id').order_by().annotate(grosssum=Sum('value'))
-        }
-        fee_sum_cache = {
-            (o['order__id'], o['tax_rate']): o for o in
-            OrderFee.objects.values('tax_rate', 'order__id').order_by().annotate(
-                taxsum=Sum('tax_value'), grosssum=Sum('value')
-            )
-        }
         if form_data.get('include_payment_amounts'):
             payment_sum_cache = {
                 (o['order__id'], o['provider']): o['grosssum'] for o in
@@ -348,46 +381,19 @@ class OrderListExporter(MultiSheetListExporter):
                     grosssum=Sum('amount')
                 )
             }
-        sum_cache = {
-            (o['order__id'], o['tax_rate']): o for o in
-            OrderPosition.objects.values('tax_rate', 'order__id').order_by().annotate(
-                taxsum=Sum('tax_value'), grosssum=Sum('price')
-            )
-        }
 
         yield self.ProgressSetTotal(total=qs.count())
         for order in qs.order_by('datetime').iterator():
-            tz = ZoneInfo(self.event_object_cache[order.event_id].settings.timezone)
+            row = []
+            for col in selected_columns:
+                column_data = self.COLUMN_CONFIG[col][1](order)
+                if isinstance(column_data, list):
+                    # If the column data is a list, extend the row with multiple columns
+                    row.extend([entry['value'] for entry in column_data])
+                else:
+                    # Otherwise, append the single column value
+                    row.append(column_data)
 
-            row = [self.COLUMN_CONFIG[col][1](order) for col in selected_columns]
-
-            for tr in tax_rates:
-                taxrate_values = sum_cache.get((order.id, tr), {'grosssum': Decimal('0.00'), 'taxsum': Decimal('0.00')})
-                fee_taxrate_values = fee_sum_cache.get((order.id, tr),
-                                                       {'grosssum': Decimal('0.00'), 'taxsum': Decimal('0.00')})
-
-                row += [
-                    taxrate_values['grosssum'] + fee_taxrate_values['grosssum'],
-                    (
-                        taxrate_values['grosssum'] - taxrate_values['taxsum'] +
-                        fee_taxrate_values['grosssum'] - fee_taxrate_values['taxsum']
-                    ),
-                    taxrate_values['taxsum'] + fee_taxrate_values['taxsum'],
-                ]
-
-            row.append(order.invoice_numbers)
-            row.append(order.sales_channel)
-            row.append(_('Yes') if order.checkin_attention else _('No'))
-            row.append(order.checkin_text or "")
-            row.append(order.comment or "")
-            row.append(order.custom_followup_at.strftime("%Y-%m-%d") if order.custom_followup_at else "")
-            row.append(order.pcnt)
-            row.append(_('Yes') if order.email_known_to_work else _('No'))
-            row.append(str(order.customer.external_identifier) if order.customer and order.customer.external_identifier else '')
-            row.append(', '.join([
-                str(self.providers.get(p, p)) for p in sorted(set((order.payment_providers or '').split(',')))
-                if p and p != 'free'
-            ]))
 
             if form_data.get('include_payment_amounts'):
                 payment_methods = self._get_all_payment_methods(qs)
